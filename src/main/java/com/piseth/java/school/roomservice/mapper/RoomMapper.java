@@ -1,20 +1,49 @@
 package com.piseth.java.school.roomservice.mapper;
 
+import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
-
+import org.mapstruct.NullValuePropertyMappingStrategy;
+import com.piseth.java.school.roomservice.domain.Address;
 import com.piseth.java.school.roomservice.domain.Room;
-import com.piseth.java.school.roomservice.dto.RoomDTO;
+import com.piseth.java.school.roomservice.dto.AddressDto;
+import com.piseth.java.school.roomservice.dto.RoomCreateRequest;
+import com.piseth.java.school.roomservice.dto.RoomResponse;
+import com.piseth.java.school.roomservice.dto.RoomUpdateRequest;
+import com.piseth.java.school.roomservice.messaging.event.RoomFullPayload;
 
 @Mapper(componentModel = "spring")
 public interface RoomMapper {
 	
-	Room toRoom(RoomDTO roomDTO);
-	
-	RoomDTO toRoomDTO(Room room);
-	
-	@Mapping(target = "id", ignore = true)
-	void updateRoomFromDTO(RoomDTO roomDTO, @MappingTarget Room entity);
+  // Create → Entity
+  @Mapping(target = "id", ignore = true)
+  @Mapping(target = "createdAt", ignore = true)
+  @Mapping(target = "updatedAt", ignore = true)
+  @Mapping(target = "createdBy", ignore = true)
+  @Mapping(target = "updatedBy", ignore = true)
+  @Mapping(target = "availableFrom", ignore = true)
+  @Mapping(target = "availableTo", ignore = true)
+  @Mapping(target = "extraAttributes", expression = "java(new java.util.HashMap<>())")
+  Room toEntity(RoomCreateRequest req);
+
+  // Update (patch) → Entity
+  @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+  void updateEntity(@MappingTarget Room target, RoomUpdateRequest req);
+
+  // Address conversions
+  Address toAddress(AddressDto dto);
+  AddressDto toAddressDto(Address address);
+
+  // Entity → Response
+  RoomResponse toResponse(Room entity);
+
+  // Entity → Full event payload (for Kafka)
+  @Mapping(target = "address", source = "address")
+  RoomFullPayload toFullPayload(Room entity);
+
+  @Mapping(target = "geo.latitude", source = "geo.latitude")
+  @Mapping(target = "geo.longitude", source = "geo.longitude")
+  RoomFullPayload.AddressPayload toAddressPayload(Address address);
 	
 }
