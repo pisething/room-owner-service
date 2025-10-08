@@ -1,11 +1,14 @@
 package com.piseth.java.school.roomservice.messaging;
 
 import java.nio.charset.StandardCharsets;
+
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.internals.RecordHeader;
-import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
 import org.springframework.stereotype.Component;
+
 import com.piseth.java.school.roomservice.messaging.event.RoomEventEnvelope;
+
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
@@ -13,7 +16,7 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class KafkaRoomEventPublisher implements RoomEventPublisher {
 
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final ReactiveKafkaProducerTemplate<String, Object> reactiveTemplate;
 
     @Override
     public Mono<Void> publish(final String topic, final String key, final RoomEventEnvelope<?> envelope) {
@@ -32,6 +35,11 @@ public class KafkaRoomEventPublisher implements RoomEventPublisher {
             });
         }
 
-        return Mono.fromFuture(() -> kafkaTemplate.send(record).completable()).then();
+        return reactiveTemplate.send(record)
+                .doOnError(ex -> {
+                    // Let caller handle via onErrorResume; we still log for observability
+                    // (Outbox worker will retry with backoff)
+                })
+                .then();
     }
 }

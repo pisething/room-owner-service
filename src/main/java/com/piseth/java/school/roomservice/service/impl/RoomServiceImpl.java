@@ -28,7 +28,6 @@ import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
 @Service
-@Validated
 @RequiredArgsConstructor
 @Slf4j
 public class RoomServiceImpl implements RoomService {
@@ -42,7 +41,7 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     @Transactional
-    public Mono<RoomResponse> create(@Valid final RoomCreateRequest request) {
+    public Mono<RoomResponse> create(final RoomCreateRequest request) {
         final Room entity = mapper.toEntity(request);
 
         if (entity.getStatus() == null) {
@@ -58,7 +57,7 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     @Transactional
-    public Mono<RoomResponse> update(final String id, @Valid final RoomUpdateRequest request) {
+    public Mono<RoomResponse> update(final String id, final RoomUpdateRequest request) {
         return repository.findById(id)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Room not found: " + id)))
                 .flatMap(existing -> {

@@ -108,10 +108,10 @@
 		    <artifactId>spring-kafka</artifactId>
 		  </dependency>
 		
-		  <!-- (Optional) Explicit Kafka clients; usually not needed because spring-kafka brings it -->
+		  <!-- Reactor Kafka (reactive producer/consumer engine) -->
 		  <dependency>
-		    <groupId>org.apache.kafka</groupId>
-		    <artifactId>kafka-clients</artifactId>
+		    <groupId>io.projectreactor.kafka</groupId>
+		    <artifactId>reactor-kafka</artifactId>
 		  </dependency>
 		
 		  <!-- Tests (embedded broker utilities, @EmbeddedKafka, etc.) -->

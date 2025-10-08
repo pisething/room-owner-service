@@ -42,6 +42,7 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(Exception.class)
 	public Mono<ProblemDetail> handleGeneric(Exception ex, ServerWebExchange exchange){
 		log.warn("Unexpected Error: {}", ex.getMessage());
+		ex.printStackTrace();
 		return Mono.just(problemFactory.create(
 				HttpStatus.INTERNAL_SERVER_ERROR, 
 				"Unexpected error: " + ex.getMessage(),

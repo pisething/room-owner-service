@@ -1,17 +1,46 @@
-version: '3.8'
+version: "3.8"
 
 services:
   mongodb:
-    image: mongo:6.0
+    image: mongo:7
     container_name: mongodb
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
     ports:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: root
-    restart: always
+    healthcheck:
+      # Try an authenticated ping and consider it healthy only if it returns 1
+      test: ["CMD-SHELL", "mongosh --host localhost:27017 -u root -p root --authenticationDatabase admin --quiet --eval \"db.runCommand({ ping: 1 }).ok\" | grep 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+  mongo-init-replica:
+    image: mongo:7
+    container_name: mongo-init-replica
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    entrypoint: >
+      bash -lc "
+      mongosh --host mongodb:27017 -u root -p root --authenticationDatabase admin --quiet --eval '
+        let needInit = false;
+        try { rs.status(); } catch (e) { needInit = true; }
+        if (needInit) {
+          print(\"Initializing rs0...\");
+          rs.initiate({_id:\"rs0\", members:[{_id:0, host:\"mongodb:27017\"}]});
+        } else {
+          print(\"Replica set already initialized.\");
+        }
+      ';
+      "
+    restart: "no"
 
 volumes:
   mongodb_data:
