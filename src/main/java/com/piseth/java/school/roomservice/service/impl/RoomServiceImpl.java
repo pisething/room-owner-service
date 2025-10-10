@@ -3,8 +3,6 @@ package com.piseth.java.school.roomservice.service.impl;
 import java.time.LocalDateTime;
 import java.util.Map;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.validation.annotation.Validated;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.piseth.java.school.roomservice.config.MessagingProperties;
 import com.piseth.java.school.roomservice.config.OutboxProperties;
@@ -22,7 +20,6 @@ import com.piseth.java.school.roomservice.outbox.OutboxRepository;
 import com.piseth.java.school.roomservice.outbox.OutboxStatus;
 import com.piseth.java.school.roomservice.repository.RoomRepository;
 import com.piseth.java.school.roomservice.service.RoomService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
@@ -40,7 +37,6 @@ public class RoomServiceImpl implements RoomService {
     private final ObjectMapper objectMapper;
 
     @Override
-    @Transactional
     public Mono<RoomResponse> create(final RoomCreateRequest request) {
         final Room entity = mapper.toEntity(request);
 
@@ -56,7 +52,6 @@ public class RoomServiceImpl implements RoomService {
     }
 
     @Override
-    @Transactional
     public Mono<RoomResponse> update(final String id, final RoomUpdateRequest request) {
         return repository.findById(id)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Room not found: " + id)))
@@ -71,7 +66,6 @@ public class RoomServiceImpl implements RoomService {
     }
 
     @Override
-    @Transactional
     public Mono<Void> delete(final String id) {
         return repository.findById(id)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Room not found: " + id)))

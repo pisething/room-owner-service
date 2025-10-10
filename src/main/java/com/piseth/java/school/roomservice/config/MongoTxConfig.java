@@ -5,10 +5,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.ReactiveMongoDatabaseFactory;
 import org.springframework.data.mongodb.ReactiveMongoTransactionManager;
 
-@Configuration
+//@Configuration
 public class MongoTxConfig {
 
-    @Bean
+    //@Bean
     public ReactiveMongoTransactionManager reactiveMongoTransactionManager(
             final ReactiveMongoDatabaseFactory factory) {
         return new ReactiveMongoTransactionManager(factory);
