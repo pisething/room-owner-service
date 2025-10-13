@@ -11,6 +11,7 @@ import com.piseth.java.school.roomownerservice.domain.enumeration.RoomStatus;
 import com.piseth.java.school.roomownerservice.dto.RoomCreateRequest;
 import com.piseth.java.school.roomownerservice.dto.RoomResponse;
 import com.piseth.java.school.roomownerservice.dto.RoomUpdateRequest;
+import com.piseth.java.school.roomownerservice.exception.RoomNotFoundException;
 import com.piseth.java.school.roomownerservice.mapper.RoomMapper;
 import com.piseth.java.school.roomownerservice.messaging.event.RoomEventEnvelope;
 import com.piseth.java.school.roomownerservice.messaging.event.RoomEventType;
@@ -54,7 +55,7 @@ public class RoomServiceImpl implements RoomService{
   @Override
   public Mono<RoomResponse> update(final String id, final RoomUpdateRequest request) {
       return repository.findById(id)
-              .switchIfEmpty(Mono.error(new IllegalArgumentException("Room not found: " + id)))
+              .switchIfEmpty(Mono.error(new RoomNotFoundException(id)))
               .flatMap(existing -> {
                   mapper.updateEntity(existing, request);
                   return repository.save(existing)
@@ -68,7 +69,7 @@ public class RoomServiceImpl implements RoomService{
   @Override
   public Mono<Void> delete(final String id) {
       return repository.findById(id)
-              .switchIfEmpty(Mono.error(new IllegalArgumentException("Room not found: " + id)))
+              .switchIfEmpty(Mono.error(new RoomNotFoundException(id)))
               .flatMap(existing -> {
                   // keep final snapshot for delete event
                   return enqueueEvent(existing, RoomEventType.ROOM_DELETED, "delete")
