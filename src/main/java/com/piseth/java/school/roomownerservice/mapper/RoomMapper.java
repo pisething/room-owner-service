@@ -1,16 +1,14 @@
 package com.piseth.java.school.roomownerservice.mapper;
 
-import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
 
 import com.piseth.java.school.roomownerservice.domain.Address;
 import com.piseth.java.school.roomownerservice.domain.Room;
 import com.piseth.java.school.roomownerservice.dto.AddressDTO;
 import com.piseth.java.school.roomownerservice.dto.RoomCreateRequest;
 import com.piseth.java.school.roomownerservice.dto.RoomResponse;
+import com.piseth.java.school.roomownerservice.messaging.event.RoomFullPayload;
 
 @Mapper(componentModel = "spring")
 public interface RoomMapper {
@@ -37,7 +35,7 @@ public interface RoomMapper {
 
   // Entity → Response
   RoomResponse toResponse(Room entity);
-/*
+
   // Entity → Full event payload (for Kafka)
   @Mapping(target = "address", source = "address")
   RoomFullPayload toFullPayload(Room entity);
@@ -46,6 +44,6 @@ public interface RoomMapper {
   @Mapping(target = "geo.longitude", source = "geo.longitude")
   RoomFullPayload.AddressPayload toAddressPayload(Address address);
   
-  */
+  
 	
 }

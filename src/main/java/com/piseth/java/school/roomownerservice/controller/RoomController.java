@@ -1,31 +1,18 @@
 package com.piseth.java.school.roomownerservice.controller;
 
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.codec.multipart.FilePart;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.piseth.java.school.roomownerservice.dto.PageDTO;
-import com.piseth.java.school.roomownerservice.dto.RoomDTO;
-import com.piseth.java.school.roomownerservice.dto.RoomFilterDTO;
-import com.piseth.java.school.roomownerservice.dto.RoomImportSummary;
-import com.piseth.java.school.roomownerservice.service.RoomImportService;
+import com.piseth.java.school.roomownerservice.dto.RoomCreateRequest;
+import com.piseth.java.school.roomownerservice.dto.RoomResponse;
 import com.piseth.java.school.roomownerservice.service.RoomService;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
@@ -34,7 +21,13 @@ import reactor.core.publisher.Mono;
 public class RoomController {
 	
 	private final RoomService roomService;
-	private final RoomImportService roomImportService;
+	//private final RoomImportService roomImportService;
+	
+  @PostMapping
+  @ResponseStatus(HttpStatus.CREATED)
+  public Mono<RoomResponse> create(@Valid @RequestBody final RoomCreateRequest req) {
+      return roomService.create(req);
+  }
 	/*
 	@PostMapping
 	public Mono<RoomDTO> createRoom(@Valid @RequestBody RoomDTO roomDTO){
