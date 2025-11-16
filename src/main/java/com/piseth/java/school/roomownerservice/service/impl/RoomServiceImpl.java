@@ -1,14 +1,22 @@
 package com.piseth.java.school.roomownerservice.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
+
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.piseth.java.school.roomownerservice.config.MessagingProperties;
 import com.piseth.java.school.roomownerservice.config.OutboxProperties;
 import com.piseth.java.school.roomownerservice.domain.Room;
 import com.piseth.java.school.roomownerservice.domain.enumeration.RoomStatus;
+import com.piseth.java.school.roomownerservice.dto.PageDTO;
 import com.piseth.java.school.roomownerservice.dto.RoomCreateRequest;
+import com.piseth.java.school.roomownerservice.dto.RoomDTO;
+import com.piseth.java.school.roomownerservice.dto.RoomFilterDTO;
 import com.piseth.java.school.roomownerservice.dto.RoomResponse;
 import com.piseth.java.school.roomownerservice.dto.RoomUpdateRequest;
 import com.piseth.java.school.roomownerservice.exception.RoomNotFoundException;
@@ -19,10 +27,14 @@ import com.piseth.java.school.roomownerservice.messaging.event.RoomFullPayload;
 import com.piseth.java.school.roomownerservice.outbox.OutboxEvent;
 import com.piseth.java.school.roomownerservice.outbox.OutboxRepository;
 import com.piseth.java.school.roomownerservice.outbox.OutboxStatus;
+import com.piseth.java.school.roomownerservice.repository.RoomCustomRepository;
 import com.piseth.java.school.roomownerservice.repository.RoomRepository;
 import com.piseth.java.school.roomownerservice.service.RoomService;
+import com.piseth.java.school.roomownerservice.util.RoomCriteriaBuilder;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
@@ -36,6 +48,7 @@ public class RoomServiceImpl implements RoomService{
   private final MessagingProperties msgProps;
   private final OutboxProperties outboxProps;
   private final ObjectMapper objectMapper;
+  private final RoomCustomRepository roomCustomRepository;
 
   @Override
   public Mono<RoomResponse> create(final RoomCreateRequest request) {
@@ -118,4 +131,41 @@ public class RoomServiceImpl implements RoomService{
 
       return outboxRepo.save(evt);
   }
+  
+  @Override
+  public Mono<RoomResponse> getById(final String id) {
+      return repository.findById(id)
+              .switchIfEmpty(Mono.error(new RoomNotFoundException(id)))
+              .map(mapper::toResponse)
+              .doOnSuccess(r -> log.info("Fetched room id={}", id))
+              .doOnError(ex -> log.error("Get room failed: {}", ex.getMessage(), ex));
+  }
+  
+  @Override
+  public Mono<PageDTO<RoomResponse>> getRoomByFilterPagination(final RoomFilterDTO filterDTO) {
+      final int page = filterDTO.getPage() != null ? filterDTO.getPage() : 0;
+      final int size = filterDTO.getSize() != null ? filterDTO.getSize() : 20;
+
+      final Criteria criteria = RoomCriteriaBuilder.build(filterDTO);
+
+      final Query countQuery = new Query(criteria);
+      final Mono<Long> countMono = roomCustomRepository.countByFilter(countQuery);
+
+      final Query dataQuery = new Query(criteria)
+              .skip((long) page * (long) size)
+              .limit(size);
+      dataQuery.with(RoomCriteriaBuilder.sort(filterDTO));
+
+      final Flux<RoomResponse> contentFlux = roomCustomRepository.findByFilter(dataQuery)
+              .map(mapper::toResponse);
+
+      return Mono.zip(countMono, contentFlux.collectList())
+              .map(tuple -> {
+                  final long total = tuple.getT1();
+                  final List<RoomResponse> content = tuple.getT2();
+                  final int totalPages = total == 0 ? 0 : (int) Math.ceil((double) total / (double) size);
+                  return new PageDTO<>(page, size, total, totalPages, content);
+              });
+  }
+
 }
