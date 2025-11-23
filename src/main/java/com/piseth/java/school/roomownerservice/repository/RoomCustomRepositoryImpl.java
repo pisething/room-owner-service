@@ -21,7 +21,7 @@ public class RoomCustomRepositoryImpl implements RoomCustomRepository{
 	}
 
 	@Override
-	public Mono<Long> coundByFilter(Query query) {
+	public Mono<Long> countByFilter(Query query) {
 		return mongoTemplate.count(query, Room.class);
 	}
 	
