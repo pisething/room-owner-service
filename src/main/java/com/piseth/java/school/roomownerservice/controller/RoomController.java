@@ -17,6 +17,7 @@ import com.piseth.java.school.roomownerservice.dto.RoomFilterDTO;
 import com.piseth.java.school.roomownerservice.dto.RoomResponse;
 import com.piseth.java.school.roomownerservice.dto.RoomUpdateRequest;
 import com.piseth.java.school.roomownerservice.service.RoomService;
+import com.piseth.java.school.roomownerservice.service.security.CurrentOwnerService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,34 +29,44 @@ import reactor.core.publisher.Mono;
 public class RoomController {
 	
 	private final RoomService roomService;
+	private final CurrentOwnerService currentOwnerService;
 	//private final RoomImportService roomImportService;
 	
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
   public Mono<RoomResponse> create(@Valid @RequestBody final RoomCreateRequest req) {
-      return roomService.create(req);
+      return currentOwnerService.getCurrentOwnerId()
+    		  .flatMap(ownerId -> roomService.create(req, ownerId));
+	  
+	  //return roomService.create(req);
   }
   
   @PatchMapping("/{id}")
   public Mono<RoomResponse> update(@PathVariable final String id,
                                    @Valid @RequestBody final RoomUpdateRequest req) {
-      return roomService.update(id, req);
+      return currentOwnerService.getCurrentOwnerId()
+    		  .flatMap(ownerId -> roomService.update(id, req, ownerId));
   }
   
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public Mono<Void> delete(@PathVariable final String id) {
-      return roomService.delete(id);
+      return currentOwnerService.getCurrentOwnerId()
+    		  .flatMap(ownerId -> roomService.delete(id, ownerId));
   }
   
   @GetMapping("/{id}")
   public Mono<RoomResponse> getById(@PathVariable final String id) {
-      return roomService.getById(id);
+      return currentOwnerService.getCurrentOwnerId()
+    		  .flatMap(ownerId -> roomService.getById(id, ownerId));
+      
   }
   
   @GetMapping
   public Mono<PageDTO<RoomResponse>> getRoomByFilterPagination(final RoomFilterDTO roomFilterDTO) {
-      return roomService.getRoomByFilterPagination(roomFilterDTO);
+      
+      return currentOwnerService.getCurrentOwnerId()
+    		  .flatMap(ownerId -> roomService.getRoomByFilterPagination(roomFilterDTO, ownerId));
   }
 	/*
 	@PostMapping
