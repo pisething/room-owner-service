@@ -51,9 +51,10 @@ public class RoomServiceImpl implements RoomService{
   private final RoomCustomRepository roomCustomRepository;
 
   @Override
-  public Mono<RoomResponse> create(final RoomCreateRequest request) {
+  public Mono<RoomResponse> create(final RoomCreateRequest request, String ownerId) {
       final Room entity = mapper.toEntity(request);
 
+      entity.setOwnerId(ownerId); // take from context, not from request
       if (entity.getStatus() == null) {
           entity.setStatus(RoomStatus.AVAILABLE);
       }
@@ -66,10 +67,15 @@ public class RoomServiceImpl implements RoomService{
   }
 
   @Override
-  public Mono<RoomResponse> update(final String id, final RoomUpdateRequest request) {
+  public Mono<RoomResponse> update(final String id, final RoomUpdateRequest request, String ownerId ) {
       return repository.findById(id)
               .switchIfEmpty(Mono.error(new RoomNotFoundException(id)))
               .flatMap(existing -> {
+            	// optional: enforce owner
+                  if (!ownerId.equals(existing.getOwnerId())) {
+                      return Mono.error(new IllegalAccessException("Room does not belong to owner " + ownerId));
+                  }
+                  
                   mapper.updateEntity(existing, request);
                   return repository.save(existing)
                           .flatMap(saved -> enqueueEvent(saved, RoomEventType.ROOM_UPDATED, "update").thenReturn(saved));
@@ -80,10 +86,14 @@ public class RoomServiceImpl implements RoomService{
   }
 
   @Override
-  public Mono<Void> delete(final String id) {
+  public Mono<Void> delete(final String id, String ownerId) {
       return repository.findById(id)
               .switchIfEmpty(Mono.error(new RoomNotFoundException(id)))
               .flatMap(existing -> {
+            	  if (!ownerId.equals(existing.getOwnerId())) {
+                      return Mono.error(new IllegalAccessException("Room does not belong to owner " + ownerId));
+                  }
+
                   // keep final snapshot for delete event
                   return enqueueEvent(existing, RoomEventType.ROOM_DELETED, "delete")
                           .then(repository.deleteById(id));
@@ -133,8 +143,9 @@ public class RoomServiceImpl implements RoomService{
   }
   
   @Override
-  public Mono<RoomResponse> getById(final String id) {
+  public Mono<RoomResponse> getById(final String id, final String ownerId) {
       return repository.findById(id)
+    		  .filter(room -> ownerId.equals(room.getOwnerId()))
               .switchIfEmpty(Mono.error(new RoomNotFoundException(id)))
               .map(mapper::toResponse)
               .doOnSuccess(r -> log.info("Fetched room id={}", id))
@@ -142,11 +153,14 @@ public class RoomServiceImpl implements RoomService{
   }
   
   @Override
-  public Mono<PageDTO<RoomResponse>> getRoomByFilterPagination(final RoomFilterDTO filterDTO) {
+  public Mono<PageDTO<RoomResponse>> getRoomByFilterPagination(final RoomFilterDTO filterDTO, final String ownerId) {
       final int page = filterDTO.getPage() != null ? filterDTO.getPage() : 0;
       final int size = filterDTO.getSize() != null ? filterDTO.getSize() : 20;
 
-      final Criteria criteria = RoomCriteriaBuilder.build(filterDTO);
+      Criteria criteria = RoomCriteriaBuilder.build(filterDTO);
+      
+      // Always scope to current owner
+      criteria = criteria.and("ownerId").is(ownerId);
 
       final Query countQuery = new Query(criteria);
       final Mono<Long> countMono = roomCustomRepository.countByFilter(countQuery);
