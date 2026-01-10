@@ -2,8 +2,6 @@ package com.piseth.java.school.roomownerservice.service.impl;
 
 
 
-import static com.piseth.java.school.roomownerservice.util.RoomConstants.FIELD_NAME;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +31,7 @@ import com.piseth.java.school.roomownerservice.outbox.OutboxStatus;
 import com.piseth.java.school.roomownerservice.repository.RoomCustomRepository;
 import com.piseth.java.school.roomownerservice.repository.RoomRepository;
 import com.piseth.java.school.roomownerservice.service.RoomService;
+import com.piseth.java.school.roomownerservice.storage.ObjectStorage;
 import com.piseth.java.school.roomownerservice.util.RoomCriteriaBuilder;
 
 import lombok.RequiredArgsConstructor;
@@ -52,6 +51,7 @@ public class RoomServiceImpl implements RoomService{
 	  private final OutboxProperties outboxProps;
 	  private final ObjectMapper objectMapper;
 	private final RoomCustomRepository roomCustomRepository;
+	private final ObjectStorage objectStorage;
 	
 	//@Transactional
 	@Override
@@ -70,7 +70,8 @@ public class RoomServiceImpl implements RoomService{
 
 	      return repository.insert(entity)
 	              .flatMap(saved -> enqueueEvent(saved, RoomEventType.ROOM_CREATED, "create").thenReturn(saved))
-	              .map(mapper::toResponse)
+	              //.map(mapper::toResponse)
+	              .flatMap(this::toRoomResponseWithUrls)
 	              .doOnSuccess(r -> log.info("Room created id={}, ownerId={}", r.getId(), r.getOwnerId()))
 	              .doOnError(ex -> log.error("Create room failed: {}", ex.getMessage(), ex));
 	}
@@ -84,7 +85,8 @@ public class RoomServiceImpl implements RoomService{
 	                  return repository.save(existing)
 	                          .flatMap(saved -> enqueueEvent(saved, RoomEventType.ROOM_UPDATED, "update").thenReturn(saved));
 	              })
-	              .map(mapper::toResponse)
+	              //.map(mapper::toResponse)
+	              .flatMap(this::toRoomResponseWithUrls)
 	              .doOnSuccess(r -> log.info("Room updated id={}", r.getId()))
 	              .doOnError(ex -> log.error("Update room failed: {}", ex.getMessage(), ex));
 	}
@@ -146,7 +148,8 @@ public class RoomServiceImpl implements RoomService{
 	  public Mono<RoomResponse> getById(final String id, final String ownerId) {
 	      return repository.findById(id)
 	              .switchIfEmpty(Mono.error(new RoomNotFoundException(id)))
-	              .map(mapper::toResponse)
+	              //.map(mapper::toResponse)
+	              .flatMap(this::toRoomResponseWithUrls)
 	              .doOnSuccess(r -> log.info("Fetched room id={}", id))
 	              .doOnError(ex -> log.error("Get room failed: {}", ex.getMessage(), ex));
 	  }
@@ -168,7 +171,8 @@ public class RoomServiceImpl implements RoomService{
 	      dataQuery.with(RoomCriteriaBuilder.sort(filterDTO));
 
 	      final Flux<RoomResponse> contentFlux = roomCustomRepository.findByFilter(dataQuery)
-	              .map(mapper::toResponse);
+	              //.map(mapper::toResponse)
+	              .flatMap(this::toRoomResponseWithUrls);
 
 	      return Mono.zip(countMono, contentFlux.collectList())
 	              .map(tuple -> {
@@ -178,93 +182,19 @@ public class RoomServiceImpl implements RoomService{
 	                  return new PageDTO<>(page, size, total, totalPages, content);
 	              });
 	  }
+	
+	private Mono<RoomResponse> toRoomResponseWithUrls(final Room room) {
+	    final RoomResponse resp = mapper.toResponse(room);
 
-	
-	
-	
-	/*
-	
-	private final RoomRepository roomRepository;
-	private final RoomMapper roomMapper;
-	private final RoomCustomRepository roomCustomRepository;
-	
-	@Override
-	public Mono<RoomDTO> createRoom(RoomDTO roomDTO) {
-		log.info("Saving room to DB: {}", roomDTO);
-		
-		Room room = roomMapper.toRoom(roomDTO);
-		
-		return roomRepository.save(room)
-			.doOnSuccess(saved -> log.info("Room saved: {}",saved))
-			.map(roomMapper::toRoomDTO);
-		 
+	    final List<String> keys = room.getPhotoObjectKeys() == null ? List.of() : room.getPhotoObjectKeys();
+
+	    return Flux.fromIterable(keys)
+	            .flatMap(key -> objectStorage.presignedGetUrl(key, java.time.Duration.ofHours(6)), 5)
+	            .collectList()
+	            .map(urls -> {
+	                resp.setPhotoUrls(urls);
+	                return resp;
+	            });
 	}
 
-	@Override
-	public Mono<RoomDTO> getRoomById(String id) {
-		log.info("Retreiving room with ID: {}", id);
-		return roomRepository.findById(id)
-				.switchIfEmpty(Mono.error(new RoomNotFoundException(id)))
-				.doOnNext(room -> log.info("Room received : {}", room))
-				.map(roomMapper::toRoomDTO);
-				
-	}
-
-	@Override
-	public Mono<RoomDTO> updateRoom(String id, RoomDTO roomDTO) {
-		log.debug("Updating romm id: {} with data : {}", id, roomDTO);
-		
-		  return roomRepository.findById(id)
-				  	.switchIfEmpty(Mono.error(new RoomNotFoundException(id)))
-					.flatMap(existing ->{
-						roomMapper.updateRoomFromDTO(roomDTO, existing);
-						return roomRepository.save(existing);
-					})
-					.map(roomMapper::toRoomDTO);
-		
-	}
-
-	@Override
-	public Mono<Void> deleteRoom(String id) {
-		log.info("Deleting room with ID: {}",id);
-		return roomRepository.deleteById(id)
-				.switchIfEmpty(Mono.error(new RoomNotFoundException(id)))
-				.doOnSuccess(deleted -> log.info("Room deleted with ID: {}",id));
-	}
-
-	@Override
-	public Flux<RoomDTO> getRoomByFilter(RoomFilterDTO filterDTO) {
-		Criteria criteria = RoomCriteriaBuilder.build(filterDTO);
-		
-		return roomCustomRepository.findByFilter(new Query(criteria))
-				.map(roomMapper::toRoomDTO);
-	}
-
-	@Override
-	public Mono<PageDTO<RoomDTO>> getRoomByFilterPagination(RoomFilterDTO filterDTO) {
-		Criteria criteria = RoomCriteriaBuilder.build(filterDTO);
-		
-		Mono<Long> countMono = roomCustomRepository.coundByFilter(new Query(criteria));
-		
-		Query query = new Query(criteria)
-				.skip((long) filterDTO.getPage() * filterDTO.getSize())
-				.limit(filterDTO.getSize());
-		
-		query.with(RoomCriteriaBuilder.sort(filterDTO));
-		
-		Flux<RoomDTO> contentFlux = roomCustomRepository.findByFilter(query)
-										.map(roomMapper::toRoomDTO);
-		
-		return Mono.zip(countMono, contentFlux.collectList())
-			.map(tuple ->{
-				long total = tuple.getT1();
-				List<RoomDTO> content = tuple.getT2(); 
-				int totalPages = (int) Math.ceil((double)total/ filterDTO.getSize());
-				return new PageDTO<>(filterDTO.getPage(), filterDTO.getSize(),total,totalPages, content);
-			});
-		
-	}
-
-	
-*/
 }

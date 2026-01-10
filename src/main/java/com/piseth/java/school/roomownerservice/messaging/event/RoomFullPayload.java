@@ -62,6 +62,7 @@ public class RoomFullPayload {
     private String contactPhone;
 
     private List<String> photoUrls;
+    private List<String> photoObjectKeys;
     private String videoUrl;
     private Boolean verifiedListing;
 

@@ -79,7 +79,9 @@ public class Room {
     private String contactPhone;            // Visible to visitors
 
     // ----------- Media -------------------------
-    private List<String> photoUrls;
+    private List<String> photoUrls; // 
+    // better than photoUrls when we change environment
+    private List<String> photoObjectKeys; // store: rooms/{roomId}/{uuid}.jpg
     private String videoUrl;
     private Boolean verifiedListing;
 
