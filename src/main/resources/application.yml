@@ -42,3 +42,13 @@ app:
     max-batch: 100
     max-attempts: 12
     retention-days: 14	
+
+storage:
+  minio:
+    endpoint: http://localhost:9000
+    accessKey: minioadmin
+    secretKey: minioadmin
+    bucket: room-media
+    publicBaseUrl: http://localhost:9000
+    maxFilesPerRoom: 10
+    maxFileSizeBytes: 5000000		
